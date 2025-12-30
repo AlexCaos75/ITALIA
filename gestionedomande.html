@@ -1,118 +1,257 @@
 <!doctype html>
 <html lang="it">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Gestione Domande - Quiz Regioni Italia</title>
   <style>
-    body{margin:0;font-family:Arial,sans-serif;background:#0d1c3a;color:#eaf2ff}
-    header{padding:16px;background:#112244;border-bottom:1px solid #004466}
-    main{max-width:1000px;margin:0 auto;padding:16px}
-    textarea{width:100%;min-height:420px;background:#08142c;color:#cfe6ff;border:1px solid #2b5c88;border-radius:10px;padding:12px;font-family:ui-monospace,Menlo,Consolas,monospace}
-    button{background:#00aaff;color:#fff;border:0;border-radius:10px;padding:10px 14px;font-weight:800;cursor:pointer;margin:6px 6px 6px 0}
-    button.secondary{background:#004466}
-    button.danger{background:#c0392b}
-    .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
-    .pill{padding:6px 10px;border:1px solid #2b5c88;border-radius:999px;background:#08142c}
-    #msg{font-weight:800;margin-top:8px}
-    .hint{opacity:.85}
+    body{margin:0;font-family:Arial,sans-serif;background:#0b1630;color:#e8f0ff;min-height:100vh}
+    header{padding:14px 16px;background:#111f42;border-bottom:1px solid #213a77}
+    h1{margin:0;font-size:18px}
+    .wrap{display:grid;grid-template-columns:320px 1fr;gap:12px;padding:12px}
+    .card{background:#111f42;border:1px solid #213a77;border-radius:12px;padding:12px}
+    select, input, textarea{width:100%;box-sizing:border-box;background:#0d1c3a;color:#aad4ff;border:1px solid #213a77;border-radius:10px;padding:10px;margin-top:8px}
+    textarea{min-height:120px;resize:vertical}
+    button{background:#00aaff;color:#fff;border:0;border-radius:10px;padding:10px 12px;font-weight:800;cursor:pointer}
+    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+    .qitem{padding:10px;border:1px solid #213a77;border-radius:10px;margin-top:10px;background:#0d1c3a}
+    .qitem h3{margin:0 0 6px 0;font-size:14px}
+    .muted{opacity:.8;font-size:12px}
+    .danger{background:#c0392b}
+    .ok{background:#22aa22}
+    .small{font-size:12px;padding:8px 10px;border-radius:8px}
+    code{background:#081129;border-radius:8px;padding:2px 6px}
   </style>
 </head>
 <body>
 <header>
-  <div class="row">
-    <div class="pill"><strong>Gestione Domande</strong></div>
-    <div class="pill">Storage: <strong>localStorage</strong></div>
-    <div class="pill">Key: <strong>quizData</strong></div>
-  </div>
+  <h1>Gestione Domande (salvataggio in <code>localStorage.quizData</code>)</h1>
 </header>
 
-<main>
-  <p class="hint">
-    Questa pagina gestisce il JSON delle domande salvato in <code>localStorage</code>.
-    Funziona bene se è sullo stesso dominio di <code>index.html</code>.
-  </p>
+<div class="wrap">
+  <div class="card">
+    <div class="muted">1) Seleziona regione</div>
+    <select id="regionSelect"></select>
 
-  <div class="row">
-    <button id="load">Carica</button>
-    <button id="save">Salva</button>
-    <button id="download" class="secondary">Esporta JSON</button>
-    <label class="pill" style="cursor:pointer">
-      Importa JSON <input id="file" type="file" accept="application/json" style="display:none">
-    </label>
-    <button id="reset" class="danger">Reset (vuoto)</button>
+    <div class="row">
+      <button id="btnNew">+ Nuova domanda</button>
+      <button id="btnSaveAll" class="ok">Salva</button>
+      <button id="btnReset" class="danger">Reset (svuota)</button>
+    </div>
+
+    <div style="margin-top:12px" class="muted">
+      Suggerimento: fai “Salva”, poi torna su <code>index.html</code> e clicca la regione (da Admin ON).
+    </div>
   </div>
 
-  <textarea id="ta" spellcheck="false" placeholder='quizData (JSON)...'></textarea>
-  <div id="msg" aria-live="polite"></div>
-</main>
+  <div class="card">
+    <div id="editorEmpty" class="muted">Seleziona una regione a sinistra.</div>
+
+    <div id="editor" style="display:none">
+      <div class="muted">2) Modifica domanda selezionata</div>
+
+      <label class="muted">Testo domanda</label>
+      <textarea id="qText" placeholder="Scrivi la domanda..."></textarea>
+
+      <label class="muted">Risposte (4 righe)</label>
+      <textarea id="qAnswers" placeholder="Risposta 1&#10;Risposta 2&#10;Risposta 3&#10;Risposta 4"></textarea>
+
+      <label class="muted">Indice risposta corretta (0-3)</label>
+      <input id="qCorrect" type="number" min="0" max="3" value="0"/>
+
+      <div class="row">
+        <button id="btnApply" class="ok">Applica modifica</button>
+        <button id="btnDelete" class="danger">Elimina</button>
+      </div>
+
+      <div style="margin-top:14px" class="muted">3) Domande della regione</div>
+      <div id="list"></div>
+    </div>
+  </div>
+</div>
 
 <script>
-  const KEY = "quizData";
-  const ta = document.getElementById("ta");
-  const msg = document.getElementById("msg");
+  // ==== Storage helper ====
+  const S = {
+    get:(k,def)=>{ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):def; }catch(e){ return def; } },
+    set:(k,v)=>{ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+  };
 
-  function setMsg(t, ok=true){
-    msg.style.color = ok ? "#22cc88" : "#ff4444";
-    msg.textContent = t;
-    setTimeout(()=>msg.textContent="", 3000);
+  // ==== Region numbers (stessi del tuo index) ====
+  const regionNumbers = S.get("regionNumbers", {
+    "IT-25":2,"IT-23":19,"IT-42":8,"IT-21":9,"IT-32":17,"IT-34":20,
+    "IT-45":6,"IT-36":5,"IT-52":16,"IT-55":18,"IT-57":10,"IT-62":7,
+    "IT-67":11,"IT-65":1,"IT-72":4,"IT-75":13,"IT-77":12,"IT-78":3,"IT-88":15,"IT-82":14
+  });
+
+  const regionNames = {
+    "IT-25":"Piemonte","IT-23":"Valle d'Aosta","IT-42":"Liguria","IT-21":"Lombardia","IT-32":"Trentino-Alto Adige",
+    "IT-34":"Veneto","IT-45":"Friuli-Venezia Giulia","IT-36":"Emilia-Romagna","IT-52":"Toscana","IT-55":"Umbria",
+    "IT-57":"Marche","IT-62":"Lazio","IT-67":"Abruzzo","IT-65":"Molise","IT-72":"Campania","IT-75":"Puglia",
+    "IT-77":"Basilicata","IT-78":"Calabria","IT-88":"Sicilia","IT-82":"Sardegna"
+  };
+
+  const defaultQuizData = Object.fromEntries(
+    Object.keys(regionNumbers).map(code => [
+      code,
+      { region: regionNames[code] || code, questions: [] }
+    ])
+  );
+
+  let quizData = S.get("quizData", defaultQuizData);
+
+  // ==== UI refs ====
+  const regionSelect = document.getElementById("regionSelect");
+  const editorEmpty = document.getElementById("editorEmpty");
+  const editor = document.getElementById("editor");
+
+  const qText = document.getElementById("qText");
+  const qAnswers = document.getElementById("qAnswers");
+  const qCorrect = document.getElementById("qCorrect");
+
+  const btnNew = document.getElementById("btnNew");
+  const btnSaveAll = document.getElementById("btnSaveAll");
+  const btnReset = document.getElementById("btnReset");
+
+  const btnApply = document.getElementById("btnApply");
+  const btnDelete = document.getElementById("btnDelete");
+
+  const list = document.getElementById("list");
+
+  let currentRegion = null;
+  let currentIndex = -1;
+
+  // ==== Populate select ====
+  const regionEntries = Object.keys(regionNumbers)
+    .map(code => ({ code, n: regionNumbers[code], name: regionNames[code] || code }))
+    .sort((a,b)=>a.n-b.n);
+
+  regionSelect.innerHTML = regionEntries
+    .map(r => `<option value="${r.code}">#${r.n} - ${r.name} (${r.code})</option>`)
+    .join("");
+
+  function ensureRegion(code){
+    if (!quizData[code]) quizData[code] = { region: regionNames[code] || code, questions: [] };
+    if (!Array.isArray(quizData[code].questions)) quizData[code].questions = [];
   }
-  function load(){
-    const raw = localStorage.getItem(KEY);
-    if(!raw){ ta.value = ""; setMsg("Nessun dato trovato in localStorage.", false); return; }
-    ta.value = JSON.stringify(JSON.parse(raw), null, 2);
-    setMsg("Caricato.");
+
+  function openRegion(code){
+    currentRegion = code;
+    ensureRegion(code);
+    editorEmpty.style.display = "none";
+    editor.style.display = "block";
+    currentIndex = -1;
+    qText.value = "";
+    qAnswers.value = "Risposta 1\nRisposta 2\nRisposta 3\nRisposta 4";
+    qCorrect.value = 0;
+    renderList();
   }
-  function save(){
+
+  function renderList(){
+    const qs = quizData[currentRegion].questions;
+    list.innerHTML = qs.map((q,i)=>`
+      <div class="qitem">
+        <h3>${i+1}) ${escapeHtml(q.question || "")}</h3>
+        <div class="muted">Corretto: <b>${Number(q.correct)||0}</b></div>
+        <div class="muted">${(q.answers||[]).map((a,ix)=>`${ix}: ${escapeHtml(a)}`).join(" | ")}</div>
+        <div class="row">
+          <button class="small" data-edit="${i}">Modifica</button>
+        </div>
+      </div>
+    `).join("");
+
+    list.querySelectorAll("button[data-edit]").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        const i = Number(btn.dataset.edit);
+        loadQuestion(i);
+      });
+    });
+  }
+
+  function loadQuestion(i){
+    const q = quizData[currentRegion].questions[i];
+    if (!q) return;
+    currentIndex = i;
+    qText.value = q.question || "";
+    qAnswers.value = (q.answers || ["","","",""]).join("\n");
+    qCorrect.value = Number(q.correct) || 0;
+  }
+
+  function readEditor(){
+    const question = qText.value.trim();
+    const answers = qAnswers.value.split("\n").map(s=>s.trim()).filter(Boolean);
+    const correct = Math.max(0, Math.min(3, Number(qCorrect.value)||0));
+
+    if (!question) throw new Error("Inserisci il testo domanda.");
+    if (answers.length < 2) throw new Error("Inserisci almeno 2 risposte (meglio 4).");
+
+    // forza 4 risposte (riempi se mancano)
+    while (answers.length < 4) answers.push("...");
+    if (answers.length > 4) answers.length = 4;
+
+    return { question, answers, correct };
+  }
+
+  // ==== Events ====
+  regionSelect.addEventListener("change", ()=> openRegion(regionSelect.value));
+
+  btnNew.addEventListener("click", ()=>{
+    if (!currentRegion) openRegion(regionSelect.value);
+    currentIndex = -1;
+    qText.value = "";
+    qAnswers.value = "Risposta 1\nRisposta 2\nRisposta 3\nRisposta 4";
+    qCorrect.value = 0;
+    qText.focus();
+  });
+
+  btnApply.addEventListener("click", ()=>{
+    if (!currentRegion) return;
     try{
-      const obj = JSON.parse(ta.value || "{}");
-      localStorage.setItem(KEY, JSON.stringify(obj));
-      setMsg("Salvato.");
+      const q = readEditor();
+      const qs = quizData[currentRegion].questions;
+      if (currentIndex >= 0) qs[currentIndex] = q;
+      else qs.push(q);
+      renderList();
+      alert("OK: modifica applicata (ricorda Salva).");
     }catch(e){
-      setMsg("JSON non valido: " + e.message, false);
-    }
-  }
-
-  document.getElementById("load").addEventListener("click", load);
-  document.getElementById("save").addEventListener("click", save);
-
-  document.getElementById("download").addEventListener("click", ()=>{
-    try{
-      const obj = JSON.parse(ta.value || "{}");
-      const blob = new Blob([JSON.stringify(obj, null, 2)], {type:"application/json"});
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = "quizData.json";
-      a.click();
-      URL.revokeObjectURL(a.href);
-      setMsg("Esportato quizData.json");
-    }catch(e){
-      setMsg("JSON non valido: " + e.message, false);
+      alert(e.message || e);
     }
   });
 
-  document.getElementById("file").addEventListener("change", async (ev)=>{
-    const f = ev.target.files && ev.target.files[0];
-    if(!f) return;
-    const text = await f.text();
-    try{
-      const obj = JSON.parse(text);
-      ta.value = JSON.stringify(obj, null, 2);
-      setMsg("Import ok. Ora clicca Salva.");
-    }catch(e){
-      setMsg("File non valido: " + e.message, false);
-    }
-    ev.target.value = "";
+  btnDelete.addEventListener("click", ()=>{
+    if (!currentRegion) return;
+    const qs = quizData[currentRegion].questions;
+    if (currentIndex < 0) return alert("Seleziona prima una domanda da eliminare.");
+    qs.splice(currentIndex, 1);
+    currentIndex = -1;
+    qText.value = "";
+    renderList();
+    alert("Domanda eliminata (ricorda Salva).");
   });
 
-  document.getElementById("reset").addEventListener("click", ()=>{
-    if(!confirm("Vuoi resettare quizData a {} ?")) return;
-    localStorage.setItem(KEY, JSON.stringify({}));
-    ta.value = "{}";
-    setMsg("Reset completato.");
+  btnSaveAll.addEventListener("click", ()=>{
+    S.set("quizData", quizData);
+    alert("✅ Salvato in localStorage.quizData");
   });
 
-  load();
+  btnReset.addEventListener("click", ()=>{
+    if (!currentRegion) return;
+    if (!confirm("Vuoi svuotare tutte le domande di questa regione?")) return;
+    quizData[currentRegion].questions = [];
+    currentIndex = -1;
+    qText.value = "";
+    renderList();
+    alert("Svuotato (ricorda Salva).");
+  });
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, m => ({
+      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+    }[m]));
+  }
+
+  // start
+  openRegion(regionSelect.value);
 </script>
 </body>
 </html>
