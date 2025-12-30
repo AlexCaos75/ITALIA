@@ -1,124 +1,94 @@
 // assets/js/mp.js
-import {
-  doc, setDoc, getDoc, updateDoc, onSnapshot,
-  collection, query, orderBy, serverTimestamp, increment
-} from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
-
 import { db, auth, ensureAnonAuth } from "./firebase-config.js";
+import {
+  doc, setDoc, getDoc, updateDoc,
+  serverTimestamp,
+  onSnapshot
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-window.MP = {
-  db, auth,
-  roomId: null,
-  uid: null,
-  nickname: null,
-  isAdmin: false,
-  unsubRoom: null,
-  unsubPlayers: null
-};
-
-function genRoomCode(len = 6) {
+function makeRoomCode(len = 6) {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let out = "";
   for (let i = 0; i < len; i++) out += chars[Math.floor(Math.random() * chars.length)];
   return out;
 }
 
-async function ensureUid() {
-  if (window.MP.uid) return window.MP.uid;
-  const uid = await ensureAnonAuth();
-  window.MP.uid = uid;
-  return uid;
+function emitRoom(roomCode, data) {
+  window.dispatchEvent(new CustomEvent("mp-room", {
+    detail: { roomCode, data }
+  }));
 }
 
-function attachListeners(roomCode) {
-  if (window.MP.unsubRoom) window.MP.unsubRoom();
-  if (window.MP.unsubPlayers) window.MP.unsubPlayers();
+export const MP = {
+  roomCode: null,
+  isAdmin: false,
+  unsubscribe: null,
+};
 
-  const roomRef = doc(db, "rooms", roomCode);
+export async function hostRoom(nickname, meta = {}) {
+  if (!nickname) throw new Error("Nickname mancante.");
 
-  window.MP.unsubRoom = onSnapshot(roomRef, (s) => {
-    if (!s.exists()) return;
-    window.dispatchEvent(new CustomEvent("mp-room", { detail: { roomCode, data: s.data() } }));
-  });
+  await ensureAnonAuth();
 
-  const playersRef = collection(db, "rooms", roomCode, "players");
-  const qPlayers = query(playersRef, orderBy("score", "desc"));
-
-  window.MP.unsubPlayers = onSnapshot(qPlayers, (qs) => {
-    const players = [];
-    qs.forEach((d) => players.push({ uid: d.id, ...d.data() }));
-    window.dispatchEvent(new CustomEvent("mp-players", { detail: { roomCode, players } }));
-  });
-}
-
-window.mpHostRoom = async function (nickname, initialState = {}) {
-  await ensureUid();
-  const roomCode = genRoomCode(6);
-
+  const roomCode = makeRoomCode(6);
   const roomRef = doc(db, "rooms", roomCode);
 
   await setDoc(roomRef, {
-    adminUid: window.MP.uid,
+    roomCode,
+    createdAt: serverTimestamp(),
+    adminUid: auth.currentUser.uid,
+    adminNickname: nickname,
     adminOnline: true,
-    gameMode: initialState.gameMode ?? "quiz",
-    quizTimeLimit: initialState.quizTimeLimit ?? 15,
-    currentTurnIndex: 0,
-    turnOrder: [],
-    selectedPlayers: [],
-    completedRegions: [],
-    createdAt: serverTimestamp()
+    meta: meta || {},
   });
 
-  const playerRef = doc(db, "rooms", roomCode, "players", window.MP.uid);
-  await setDoc(playerRef, {
-    nickname,
-    score: 0, wins: 0, losses: 0, games: 0,
-    joinedAt: serverTimestamp()
-  });
+  // ascolto stato stanza
+  bindRoom(roomCode, true);
 
-  window.MP.roomId = roomCode;
-  window.MP.nickname = nickname;
-  window.MP.isAdmin = true;
-
-  attachListeners(roomCode);
   return roomCode;
-};
+}
 
-window.mpJoinRoom = async function (roomCode, nickname) {
-  await ensureUid();
-  const code = String(roomCode).trim().toUpperCase();
+export async function joinRoom(roomCode, nickname) {
+  if (!roomCode) throw new Error("Room code mancante.");
+  if (!nickname) throw new Error("Nickname mancante.");
 
-  const roomRef = doc(db, "rooms", code);
+  await ensureAnonAuth();
+
+  const roomRef = doc(db, "rooms", roomCode);
   const snap = await getDoc(roomRef);
-  if (!snap.exists()) throw new Error("Room inesistente");
+  if (!snap.exists()) throw new Error("Stanza non trovata: " + roomCode);
 
-  const playerRef = doc(db, "rooms", code, "players", window.MP.uid);
-  await setDoc(playerRef, {
-    nickname,
-    score: 0, wins: 0, losses: 0, games: 0,
-    joinedAt: serverTimestamp()
-  }, { merge: true });
+  // ascolto stato stanza
+  bindRoom(roomCode, false);
 
-  window.MP.roomId = code;
-  window.MP.nickname = nickname;
-  window.MP.isAdmin = (snap.data().adminUid === window.MP.uid);
-
-  attachListeners(code);
   return true;
-};
+}
 
-window.mpUpdateRoom = async function (patch) {
-  if (!window.MP.roomId) throw new Error("Non sei in una room");
-  await updateDoc(doc(db, "rooms", window.MP.roomId), patch);
-};
+function bindRoom(roomCode, isAdmin) {
+  // chiudi eventuale listener precedente
+  if (MP.unsubscribe) {
+    try { MP.unsubscribe(); } catch {}
+    MP.unsubscribe = null;
+  }
 
-window.mpUpdateMyStats = async function (patch) {
-  if (!window.MP.roomId) throw new Error("Non sei in una room");
-  await updateDoc(doc(db, "rooms", window.MP.roomId, "players", window.MP.uid), patch);
-};
+  MP.roomCode = roomCode;
+  MP.isAdmin = !!isAdmin;
 
-window.mpIncrementMyScore = async function (delta) {
-  await window.mpUpdateMyStats({ score: increment(delta) });
-};
+  const roomRef = doc(db, "rooms", roomCode);
+  MP.unsubscribe = onSnapshot(roomRef, async (snap) => {
+    if (!snap.exists()) return;
+    const data = snap.data();
 
-window.mpInc = increment;
+    // Se sei admin e la stanza ti appartiene, tieni adminOnline true
+    if (MP.isAdmin && auth.currentUser?.uid === data.adminUid) {
+      // (evita loop) aggiorna solo se falso
+      if (data.adminOnline !== true) {
+        try {
+          await updateDoc(roomRef, { adminOnline: true });
+        } catch {}
+      }
+    }
+
+    emitRoom(roomCode, data);
+  });
+}
