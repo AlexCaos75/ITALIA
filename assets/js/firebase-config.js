@@ -9,23 +9,24 @@ import {
   getDatabase
 } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
-// 🔴 METTI QUI LA TUA CONFIG REALE
+// ✅ CONFIG FIREBASE
+// ⚠️ NON inventare i valori: copiali da Firebase Console → Project settings → Web app
 export const firebaseConfig = {
-  apiKey: "INSERISCI_API_KEY",
-  authDomain: "INSERISCI_AUTH_DOMAIN",
-  databaseURL: "INSERISCI_DATABASE_URL",
-  projectId: "INSERISCI_PROJECT_ID",
-  storageBucket: "INSERISCI_STORAGE_BUCKET",
-  messagingSenderId: "INSERISCI_SENDER_ID",
-  appId: "INSERISCI_APP_ID"
+  apiKey: "INCOLLA_API_KEY",
+  authDomain: "INCOLLA_AUTH_DOMAIN",
+  databaseURL: "https://quiz-regioni-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "INCOLLA_PROJECT_ID",
+  storageBucket: "INCOLLA_STORAGE_BUCKET",
+  messagingSenderId: "INCOLLA_MESSAGING_SENDER_ID",
+  appId: "INCOLLA_APP_ID"
 };
 
-// Init
+// Init app
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getDatabase(app);
 
-// ✅ QUESTA È LA FUNZIONE CHE MANCAVA
+// ✅ Autenticazione anonima (necessaria per multiplayer)
 export function ensureAnonAuth() {
   return new Promise((resolve, reject) => {
     const unsub = onAuthStateChanged(auth, user => {
