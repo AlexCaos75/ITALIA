@@ -4,6 +4,7 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Quiz Regioni Italia</title>
+
   <style>
     body{margin:0;font-family:Arial,sans-serif;background:linear-gradient(135deg,#1a73e8,#3c8dbc);color:#eee;min-height:100vh;display:flex;flex-direction:column;align-items:center}
     h1{margin:1rem;text-shadow:0 0 10px rgba(0,0,0,.7)}
@@ -15,15 +16,21 @@
     #map-svg text{user-select:none;pointer-events:none;text-anchor:middle}
     #map-svg .region-number{font-weight:700;font-size:14px;fill:yellow;stroke:black;stroke-width:1;paint-order:stroke}
     #map-svg .region-name{font-weight:600;font-size:10px;fill:white;stroke:rgba(0,0,0,.8);stroke-width:1px;paint-order:stroke}
+
     #register-modal{position:fixed;bottom:20px;right:20px;width:320px;max-height:80vh;overflow:auto;background:#222a44;border-radius:12px;box-shadow:0 0 25px rgba(0,0,0,.8);padding:1rem;z-index:10}
     #register-modal h2{margin:0 0 .7rem 0;text-align:center}
     #register-modal input{width:100%;padding:.5rem;border-radius:6px;border:1px solid #004466;background:#112244;color:#aad4ff}
     #register-modal button{width:100%;margin-top:.6rem;background:#00aaff;color:#fff;border:0;border-radius:8px;padding:.6rem;font-weight:800;cursor:pointer}
+
     #menu-toggle-btn{position:fixed;top:10px;right:10px;background:#00aaff;color:#fff;border:0;border-radius:8px;padding:.4rem .8rem;font-weight:800;cursor:pointer;z-index:20}
     #menu{position:fixed;top:50px;right:10px;background:#222a44;border:1px solid #004466;border-radius:10px;box-shadow:0 0 12px rgba(0,0,0,.5);padding:8px;display:none;z-index:20}
     #menu button{display:block;width:190px;background:#004466;color:#fff;border:0;border-radius:8px;padding:.6rem;margin:6px 0;font-weight:800;cursor:pointer;text-align:left}
     #admin-status{position:fixed;top:10px;left:10px;background:#aa2222;color:#fff;padding:.3rem .8rem;border-radius:10px;font-weight:800;z-index:20}
     #admin-status.online{background:#22aa22}
+
+    #quiz-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:29}
+    #quiz-overlay.active{display:block}
+
     #quiz-modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#222a44;border-radius:12px;box-shadow:0 0 25px rgba(0,0,0,.8);width:90vw;max-width:520px;max-height:90vh;overflow:auto;padding:1rem;display:none;z-index:30}
     #quiz-modal.active{display:block}
     .answer{width:100%;text-align:left;background:#0d1c3a;color:#aad4ff;border:1px solid #004466;border-radius:8px;padding:.6rem;margin:.25rem 0;font-weight:700;cursor:pointer}
@@ -31,19 +38,23 @@
     .answer.wrong{background:#cc4455;color:#fff;border-color:#cc4455}
   </style>
 
+  <!-- Multiplayer module -->
   <script type="module">
     import * as MPMod from "./assets/js/mp.js";
     window.MPMod = MPMod;
   </script>
 </head>
+
 <body>
   <h1>Quiz Interattivo: Regioni d'Italia</h1>
 
   <div id="admin-status">Admin: OFF</div>
   <button id="menu-toggle-btn">Menu</button>
+
   <div id="menu">
     <button id="open-gestione">Apri gestionedomande.html</button>
     <button id="login-admin">Login/Logout Admin</button>
+    <button id="set-admin-pass">Imposta Password Admin</button>
   </div>
 
   <div id="register-modal">
@@ -87,6 +98,7 @@
     </svg>
   </div>
 
+  <div id="quiz-overlay"></div>
   <div id="quiz-modal" role="dialog" aria-modal="true">
     <h2 id="quiz-title">Quiz</h2>
     <div id="quiz-body"></div>
@@ -94,14 +106,27 @@
   </div>
 
 <script>
-  // ===== SETTINGS =====
-  const ADMIN_PASSWORD = "Morena7";
-
   // ===== STORAGE =====
   const S = {
     get:(k,def)=>{ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):def; }catch(e){ return def; } },
     set:(k,v)=>{ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
   };
+
+  // ✅ Password admin NON in chiaro nel repo:
+  // - prima volta: imposta dal menu
+  // - poi resta salvata in localStorage
+  const ADMIN_PASS_KEY = "adminPassword";
+  function getAdminPassword(){
+    return S.get(ADMIN_PASS_KEY, null);
+  }
+  function setAdminPassword(){
+    const p1 = prompt("Imposta nuova password Admin (min 4 caratteri):");
+    if(!p1 || p1.length < 4) return alert("Password non valida.");
+    const p2 = prompt("Ripeti password:");
+    if(p1 !== p2) return alert("Non совпинз... (non coincide).");
+    S.set(ADMIN_PASS_KEY, p1);
+    alert("Password Admin impostata.");
+  }
 
   // ===== DATA =====
   const regionNumbers = S.get("regionNumbers", {
@@ -110,8 +135,20 @@
     "IT-67":11,"IT-65":1,"IT-72":4,"IT-75":13,"IT-77":12,"IT-78":3,"IT-88":15,"IT-82":14
   });
 
-  const defaultQuizData = Object.fromEntries(Object.entries(regionNumbers).map(([code,n])=>[code,{region:document.querySelector(`g[data-region-code="${code}"]`)?.dataset.regionName||code,questions:[]}]));
-  const quizData = S.get("quizData", defaultQuizData);
+  // quizData: { "IT-25": { region:"Piemonte", questions:[{question, answers[], correct}] } }
+  const quizData = S.get("quizData", {});
+
+  // Ensure region entries exist AFTER DOM is ready
+  function ensureQuizDataHasRegions(){
+    document.querySelectorAll("#map-svg g").forEach(g=>{
+      const code = g.dataset.regionCode;
+      const name = g.dataset.regionName;
+      if(!quizData[code]) quizData[code] = { region:name, questions:[] };
+      if(!quizData[code].region) quizData[code].region = name;
+      if(!Array.isArray(quizData[code].questions)) quizData[code].questions = [];
+    });
+    S.set("quizData", quizData);
+  }
 
   let adminOnline = false;
 
@@ -121,10 +158,12 @@
   const menu = document.getElementById("menu");
   const openGestione = document.getElementById("open-gestione");
   const loginAdmin = document.getElementById("login-admin");
+  const setPassBtn = document.getElementById("set-admin-pass");
 
   const nicknameInput = document.getElementById("nickname");
   const registerBtn = document.getElementById("register-btn");
 
+  const overlay = document.getElementById("quiz-overlay");
   const quizModal = document.getElementById("quiz-modal");
   const quizBody = document.getElementById("quiz-body");
   const closeQuiz = document.getElementById("close-quiz");
@@ -148,9 +187,23 @@
     });
   }
 
+  function openQuiz(html){
+    quizBody.innerHTML = html;
+    overlay.classList.add("active");
+    quizModal.classList.add("active");
+  }
+  function closeQuizModal(){
+    overlay.classList.remove("active");
+    quizModal.classList.remove("active");
+  }
+
   function promptPwd(){
-    const p = prompt("Password admin:");
-    return p;
+    const saved = getAdminPassword();
+    if(!saved){
+      alert("Prima imposta la password Admin dal Menu → Imposta Password Admin.");
+      return null;
+    }
+    return prompt("Password admin:");
   }
 
   // ===== EVENTS =====
@@ -158,12 +211,13 @@
   document.addEventListener("click",(e)=>{ if(!menu.contains(e.target) && e.target!==menuBtn) menu.style.display="none"; });
 
   openGestione.addEventListener("click", ()=> window.open("./gestionedomande.html","_blank"));
+  setPassBtn.addEventListener("click", setAdminPassword);
 
   loginAdmin.addEventListener("click", ()=>{
     if(!adminOnline){
       const p = promptPwd();
-      if(p===ADMIN_PASSWORD) setAdmin(true);
-      else alert("Password errata.");
+      if(p && p===getAdminPassword()) setAdmin(true);
+      else if(p) alert("Password errata.");
     }else{
       setAdmin(false);
     }
@@ -180,33 +234,41 @@
     alert("Registrato: "+nick);
   });
 
+  // Click region
   document.querySelectorAll("#map-svg g").forEach(g=>{
     g.addEventListener("click", ()=>{
-      if(!adminOnline) return alert("Admin OFF: avvia la sessione (Login Admin).");
       const code = g.dataset.regionCode;
       const name = g.dataset.regionName;
+
+      // Se vuoi bloccare senza admin, rimetti questo:
+      // if(!adminOnline) return alert("Admin OFF: avvia la sessione (Login Admin).");
+
       const entry = quizData[code];
-      if(!entry || !entry.questions || entry.questions.length===0){
-        quizBody.innerHTML = `<p><strong>${name}</strong></p><p>Nessuna domanda presente. Apri gestionedomande.html e inseriscile in quizData.</p>`;
-        quizModal.classList.add("active");
+      if(!entry || !Array.isArray(entry.questions) || entry.questions.length===0){
+        openQuiz(`<p><strong>${name}</strong></p><p>Nessuna domanda presente.<br>Apri <strong>gestionedomande.html</strong> e inseriscile in <code>quizData</code>.</p>`);
         return;
       }
+
       const q = entry.questions[Math.floor(Math.random()*entry.questions.length)];
-      quizBody.innerHTML = `<p><strong>${name}</strong></p><p>${q.question}</p>` + q.answers.map((a,i)=>`<button class="answer" data-i="${i}">${a}</button>`).join("");
-      quizModal.classList.add("active");
+      const answersHtml = (q.answers||[]).map((a,i)=>`<button class="answer" data-i="${i}">${a}</button>`).join("");
+      openQuiz(`<p><strong>${name}</strong></p><p>${q.question ?? "(domanda mancante)"}</p>${answersHtml}`);
+
       quizBody.querySelectorAll("button.answer").forEach(btn=>{
         btn.addEventListener("click", ()=>{
           const i = Number(btn.dataset.i);
           const correct = (i===q.correct);
           btn.classList.add(correct ? "correct":"wrong");
           quizBody.querySelectorAll("button.answer").forEach(b=>b.disabled=true);
-          quizBody.querySelectorAll("button.answer")[q.correct]?.classList.add("correct");
+          const correctBtn = quizBody.querySelectorAll("button.answer")[q.correct];
+          if(correctBtn) correctBtn.classList.add("correct");
         });
       });
     });
   });
 
-  closeQuiz.addEventListener("click", ()=> quizModal.classList.remove("active"));
+  closeQuiz.addEventListener("click", closeQuizModal);
+  overlay.addEventListener("click", closeQuizModal);
+  document.addEventListener("keydown",(e)=>{ if(e.key==="Escape") closeQuizModal(); });
 
   // Multiplayer HOST/JOIN (Firebase)
   hostBtn.addEventListener("click", async ()=>{
@@ -218,7 +280,7 @@
       roomStatus.textContent = "Stanza creata: " + code + " (ADMIN)";
       setAdmin(true);
     }catch(e){
-      alert("Errore Firebase: " + e.message + "\n(Controlla assets/js/firebase-config.js)");
+      alert("Errore Firebase: " + (e?.message || e) + "\n(Controlla assets/js/firebase-config.js)");
     }
   });
 
@@ -231,7 +293,7 @@
       await window.MPMod.joinRoom(code, nick);
       roomStatus.textContent = "Entrato in: " + code;
     }catch(e){
-      alert("Errore Firebase: " + e.message + "\n(Controlla assets/js/firebase-config.js)");
+      alert("Errore Firebase: " + (e?.message || e) + "\n(Controlla assets/js/firebase-config.js)");
     }
   });
 
@@ -242,6 +304,8 @@
     roomStatus.textContent = "Connesso a: " + ev.detail.roomCode + (window.MPMod?.MP?.isAdmin ? " (ADMIN)" : "");
   });
 
+  // Init
+  ensureQuizDataHasRegions();
   updateNumbers();
   setAdmin(false);
 </script>
