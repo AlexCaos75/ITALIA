@@ -1,4 +1,5 @@
 // assets/js/firebase-config.js
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import {
   getAuth,
@@ -9,29 +10,28 @@ import {
   getDatabase
 } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
-// ✅ CONFIG FIREBASE
-// ⚠️ NON inventare i valori: copiali da Firebase Console → Project settings → Web app
+// 🔥 CONFIG REALE (OK)
 export const firebaseConfig = {
-  apiKey: "INCOLLA_API_KEY",
-  authDomain: "INCOLLA_AUTH_DOMAIN",
+  apiKey: "AIzaSyC4wjxtURhqn1cfiaEDWXSLrj9-BgwoINs",
+  authDomain: "quiz-regioni.firebaseapp.com",
   databaseURL: "https://quiz-regioni-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "INCOLLA_PROJECT_ID",
-  storageBucket: "INCOLLA_STORAGE_BUCKET",
-  messagingSenderId: "INCOLLA_MESSAGING_SENDER_ID",
-  appId: "INCOLLA_APP_ID"
+  projectId: "quiz-regioni",
+  storageBucket: "quiz-regioni.firebasestorage.app",
+  messagingSenderId: "80504945646",
+  appId: "1:80504945646:web:865dac2c7890c3a62b2cff"
 };
 
-// Init app
+// 🔧 Init Firebase
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getDatabase(app);
 
-// ✅ Autenticazione anonima (necessaria per multiplayer)
+// ✅ AUTH ANONIMA (usata da mp.js)
 export function ensureAnonAuth() {
   return new Promise((resolve, reject) => {
-    const unsub = onAuthStateChanged(auth, user => {
+    const unsubscribe = onAuthStateChanged(auth, user => {
       if (user) {
-        unsub();
+        unsubscribe();
         resolve(user);
       } else {
         signInAnonymously(auth).catch(reject);
