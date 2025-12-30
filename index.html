@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Quiz Regioni Italia</title>
+  <style>
+    body{margin:0;font-family:Arial,sans-serif;background:linear-gradient(135deg,#1a73e8,#3c8dbc);color:#eee;min-height:100vh;display:flex;flex-direction:column;align-items:center}
+    h1{margin:1rem;text-shadow:0 0 10px rgba(0,0,0,.7)}
+    #map-container{position:relative;width:90vw;max-width:900px;aspect-ratio:5/7;margin-bottom:2rem}
+    #map-container img{width:100%;height:100%;object-fit:contain;border-radius:18px;box-shadow:0 0 30px rgba(0,0,0,.7)}
+    #map-svg{position:absolute;top:0;left:0;width:100%;height:100%}
+    #map-svg g{cursor:pointer}
+    #map-svg circle{fill:#4287f5;filter:drop-shadow(0 0 6px rgba(0,0,0,.4))}
+    #map-svg text{user-select:none;pointer-events:none;text-anchor:middle}
+    #map-svg .region-number{font-weight:700;font-size:14px;fill:yellow;stroke:black;stroke-width:1;paint-order:stroke}
+    #map-svg .region-name{font-weight:600;font-size:10px;fill:white;stroke:rgba(0,0,0,.8);stroke-width:1px;paint-order:stroke}
+    #register-modal{position:fixed;bottom:20px;right:20px;width:320px;max-height:80vh;overflow:auto;background:#222a44;border-radius:12px;box-shadow:0 0 25px rgba(0,0,0,.8);padding:1rem;z-index:10}
+    #register-modal h2{margin:0 0 .7rem 0;text-align:center}
+    #register-modal input{width:100%;padding:.5rem;border-radius:6px;border:1px solid #004466;background:#112244;color:#aad4ff}
+    #register-modal button{width:100%;margin-top:.6rem;background:#00aaff;color:#fff;border:0;border-radius:8px;padding:.6rem;font-weight:800;cursor:pointer}
+    #menu-toggle-btn{position:fixed;top:10px;right:10px;background:#00aaff;color:#fff;border:0;border-radius:8px;padding:.4rem .8rem;font-weight:800;cursor:pointer;z-index:20}
+    #menu{position:fixed;top:50px;right:10px;background:#222a44;border:1px solid #004466;border-radius:10px;box-shadow:0 0 12px rgba(0,0,0,.5);padding:8px;display:none;z-index:20}
+    #menu button{display:block;width:190px;background:#004466;color:#fff;border:0;border-radius:8px;padding:.6rem;margin:6px 0;font-weight:800;cursor:pointer;text-align:left}
+    #admin-status{position:fixed;top:10px;left:10px;background:#aa2222;color:#fff;padding:.3rem .8rem;border-radius:10px;font-weight:800;z-index:20}
+    #admin-status.online{background:#22aa22}
+    #quiz-modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#222a44;border-radius:12px;box-shadow:0 0 25px rgba(0,0,0,.8);width:90vw;max-width:520px;max-height:90vh;overflow:auto;padding:1rem;display:none;z-index:30}
+    #quiz-modal.active{display:block}
+    .answer{width:100%;text-align:left;background:#0d1c3a;color:#aad4ff;border:1px solid #004466;border-radius:8px;padding:.6rem;margin:.25rem 0;font-weight:700;cursor:pointer}
+    .answer.correct{background:#22cc88;color:#fff;border-color:#22cc88}
+    .answer.wrong{background:#cc4455;color:#fff;border-color:#cc4455}
+  </style>
+
+  <script type="module">
+    import * as MPMod from "./assets/js/mp.js";
+    window.MPMod = MPMod;
+  </script>
+</head>
+<body>
+  <h1>Quiz Interattivo: Regioni d'Italia</h1>
+
+  <div id="admin-status">Admin: OFF</div>
+  <button id="menu-toggle-btn">Menu</button>
+  <div id="menu">
+    <button id="open-gestione">Apri gestionedomande.html</button>
+    <button id="login-admin">Login/Logout Admin</button>
+  </div>
+
+  <div id="register-modal">
+    <h2>Registrazione</h2>
+    <input id="nickname" type="text" minlength="3" maxlength="20" placeholder="Nickname"/>
+    <button id="register-btn">Registra</button>
+
+    <div style="margin-top:10px;border-top:1px solid #004466;padding-top:10px">
+      <div style="font-weight:900;margin-bottom:6px">Multiplayer (Firebase)</div>
+      <input id="room-code" type="text" placeholder="Room code (ABC123)" style="text-transform:uppercase"/>
+      <button id="host-btn">Crea Stanza (HOST)</button>
+      <button id="join-btn">Entra (JOIN)</button>
+      <div id="room-status" style="margin-top:6px;font-weight:800;color:#aad4ff"></div>
+    </div>
+  </div>
+
+  <div id="map-container">
+    <img src="./assets/images/mappa-italia.png" alt="Mappa Italia"/>
+    <svg id="map-svg" viewBox="0 0 500 700" preserveAspectRatio="xMidYMid meet">
+      <!-- 20 regioni (punti cliccabili) -->
+      <g data-region-code="IT-25" data-region-name="Piemonte" transform="translate(64.44,188.88)"><circle cx="0" cy="0" r="12"/><text class="region-number" x="0" y="-12"></text><text class="region-name" x="0" y="16">Piemonte</text></g>
+      <g data-region-code="IT-23" data-region-name="Valle d'Aosta" transform="translate(51.11,142.77)"><circle cx="0" cy="0" r="12"/><text class="region-number" x="0" y="-12"></text><text class="region-name" x="0" y="16">Valle d'Aosta</text></g>
+      <g data-region-code="IT-42" data-region-name="Liguria" transform="translate(96.66,225)"><circle cx="0" cy="0" r="12"/><text class="region-number" x="0" y="-12"></text><text class="region-name" x="0" y="16">Liguria</text></g>
+      <g data-region-code="IT-21" data-region-name="Lombardia" transform="translate(136.66,155.55)"><circle cx="0" cy="0" r="12"/><text class="region-number" x="0" y="-12"></text><text class="region-name" x="0" y="16">Lombardia</text></g>
+      <g data-region-code="IT-32" data-region-name="Trentino-Alto Adige" transform="translate(190.55,98.33)"><circle cx="0" cy="0" r="12"/><text class="region-number" x="0" y="-12"></text><text class="region-name" x="0" y="16">Trentino-Alto Adige</text></g>
+      <g data-region-code="IT-34" data-region-name="Veneto" transform="translate(209.44,168.88)"><circle cx="0" cy="0" r="12"/><text class="region-number" x="0" y="-12"></text><text class="region-name" x="0" y="16">Veneto</text></g>
+      <g data-region-code="IT-45" data-region-name="Friuli-Venezia Giulia" transform="translate(261.66,126.66)"><circle cx="0" cy="0" r="12"/><text class="region-number" x="0" y="-12"></text><text class="region-name" x="0" y="16">Friuli-Venezia Giulia</text></g>
+      <g data-region-code="IT-36" data-region-name="Emilia-Romagna" transform="translate(192.77,217.22)"><circle cx="0" cy="0" r="12"/><text class="region-number" x="0" y="-12"></text><text class="region-name" x="0" y="16">Emilia-Romagna</text></g>
+      <g data-region-code="IT-52" data-region-name="Toscana" transform="translate(187.77,260.55)"><circle cx="0" cy="0" r="12"/><text class="region-number" x="0" y="-12"></text><text class="region-name" x="0" y="16">Toscana</text></g>
+      <g data-region-code="IT-55" data-region-name="Umbria" transform="translate(245.54,298.88)"><circle cx="0" cy="0" r="12"/><text class="region-number" x="0" y="-12"></text><text class="region-name" x="0" y="16">Umbria</text></g>
+      <g data-region-code="IT-57" data-region-name="Marche" transform="translate(267.77,280)"><circle cx="0" cy="0" r="12"/><text class="region-number" x="0" y="-12"></text><text class="region-name" x="0" y="16">Marche</text></g>
+      <g data-region-code="IT-62" data-region-name="Lazio" transform="translate(240.55,333.33)"><circle cx="0" cy="0" r="12"/><text class="region-number" x="0" y="-12"></text><text class="region-name" x="0" y="16">Lazio</text></g>
+      <g data-region-code="IT-67" data-region-name="Abruzzo" transform="translate(292.21,329.44)"><circle cx="0" cy="0" r="12"/><text class="region-number" x="0" y="-12"></text><text class="region-name" x="0" y="16">Abruzzo</text></g>
+      <g data-region-code="IT-65" data-region-name="Molise" transform="translate(300,360)"><circle cx="0" cy="0" r="12"/><text class="region-number" x="0" y="-12"></text><text class="region-name" x="0" y="16">Molise</text></g>
+      <g data-region-code="IT-72" data-region-name="Campania" transform="translate(328.88,400)"><circle cx="0" cy="0" r="12"/><text class="region-number" x="0" y="-12"></text><text class="region-name" x="0" y="16">Campania</text></g>
+      <g data-region-code="IT-75" data-region-name="Puglia" transform="translate(403.33,388.33)"><circle cx="0" cy="0" r="12"/><text class="region-number" x="0" y="-12"></text><text class="region-name" x="0" y="16">Puglia</text></g>
+      <g data-region-code="IT-77" data-region-name="Basilicata" transform="translate(383.88,422.22)"><circle cx="0" cy="0" r="12"/><text class="region-number" x="0" y="-12"></text><text class="region-name" x="0" y="16">Basilicata</text></g>
+      <g data-region-code="IT-78" data-region-name="Calabria" transform="translate(398.88,483.33)"><circle cx="0" cy="0" r="12"/><text class="region-number" x="0" y="-12"></text><text class="region-name" x="0" y="16">Calabria</text></g>
+      <g data-region-code="IT-88" data-region-name="Sicilia" transform="translate(306.11,567.77)"><circle cx="0" cy="0" r="12"/><text class="region-number" x="0" y="-12"></text><text class="region-name" x="0" y="16">Sicilia</text></g>
+      <g data-region-code="IT-82" data-region-name="Sardegna" transform="translate(99.44,431.11)"><circle cx="0" cy="0" r="12"/><text class="region-number" x="0" y="-12"></text><text class="region-name" x="0" y="16">Sardegna</text></g>
+    </svg>
+  </div>
+
+  <div id="quiz-modal" role="dialog" aria-modal="true">
+    <h2 id="quiz-title">Quiz</h2>
+    <div id="quiz-body"></div>
+    <button id="close-quiz" style="margin-top:10px;background:#c0392b">Chiudi</button>
+  </div>
+
+<script>
+  // ===== SETTINGS =====
+  const ADMIN_PASSWORD = "Morena7";
+
+  // ===== STORAGE =====
+  const S = {
+    get:(k,def)=>{ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):def; }catch(e){ return def; } },
+    set:(k,v)=>{ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+  };
+
+  // ===== DATA =====
+  const regionNumbers = S.get("regionNumbers", {
+    "IT-25":2,"IT-23":19,"IT-42":8,"IT-21":9,"IT-32":17,"IT-34":20,
+    "IT-45":6,"IT-36":5,"IT-52":16,"IT-55":18,"IT-57":10,"IT-62":7,
+    "IT-67":11,"IT-65":1,"IT-72":4,"IT-75":13,"IT-77":12,"IT-78":3,"IT-88":15,"IT-82":14
+  });
+
+  const defaultQuizData = Object.fromEntries(Object.entries(regionNumbers).map(([code,n])=>[code,{region:document.querySelector(`g[data-region-code="${code}"]`)?.dataset.regionName||code,questions:[]}]));
+  const quizData = S.get("quizData", defaultQuizData);
+
+  let adminOnline = false;
+
+  // ===== UI =====
+  const adminStatus = document.getElementById("admin-status");
+  const menuBtn = document.getElementById("menu-toggle-btn");
+  const menu = document.getElementById("menu");
+  const openGestione = document.getElementById("open-gestione");
+  const loginAdmin = document.getElementById("login-admin");
+
+  const nicknameInput = document.getElementById("nickname");
+  const registerBtn = document.getElementById("register-btn");
+
+  const quizModal = document.getElementById("quiz-modal");
+  const quizBody = document.getElementById("quiz-body");
+  const closeQuiz = document.getElementById("close-quiz");
+
+  // multiplayer
+  const roomCodeInput = document.getElementById("room-code");
+  const hostBtn = document.getElementById("host-btn");
+  const joinBtn = document.getElementById("join-btn");
+  const roomStatus = document.getElementById("room-status");
+
+  function setAdmin(on){
+    adminOnline = !!on;
+    adminStatus.textContent = "Admin: " + (adminOnline ? "ON" : "OFF");
+    adminStatus.classList.toggle("online", adminOnline);
+  }
+
+  function updateNumbers(){
+    document.querySelectorAll("#map-svg g").forEach(g=>{
+      const code = g.dataset.regionCode;
+      g.querySelector(".region-number").textContent = regionNumbers[code] ?? "";
+    });
+  }
+
+  function promptPwd(){
+    const p = prompt("Password admin:");
+    return p;
+  }
+
+  // ===== EVENTS =====
+  menuBtn.addEventListener("click", ()=> menu.style.display = (menu.style.display==="block"?"none":"block"));
+  document.addEventListener("click",(e)=>{ if(!menu.contains(e.target) && e.target!==menuBtn) menu.style.display="none"; });
+
+  openGestione.addEventListener("click", ()=> window.open("./gestionedomande.html","_blank"));
+
+  loginAdmin.addEventListener("click", ()=>{
+    if(!adminOnline){
+      const p = promptPwd();
+      if(p===ADMIN_PASSWORD) setAdmin(true);
+      else alert("Password errata.");
+    }else{
+      setAdmin(false);
+    }
+  });
+
+  registerBtn.addEventListener("click", ()=>{
+    const nick = nicknameInput.value.trim();
+    if(!nick) return alert("Inserisci nickname.");
+    const list = S.get("participants", []);
+    if(!list.some(x=>String(x.nickname).toLowerCase()===nick.toLowerCase())){
+      list.push({ nickname:nick, wins:0, losses:0, games:0, score:0 });
+      S.set("participants", list);
+    }
+    alert("Registrato: "+nick);
+  });
+
+  document.querySelectorAll("#map-svg g").forEach(g=>{
+    g.addEventListener("click", ()=>{
+      if(!adminOnline) return alert("Admin OFF: avvia la sessione (Login Admin).");
+      const code = g.dataset.regionCode;
+      const name = g.dataset.regionName;
+      const entry = quizData[code];
+      if(!entry || !entry.questions || entry.questions.length===0){
+        quizBody.innerHTML = `<p><strong>${name}</strong></p><p>Nessuna domanda presente. Apri gestionedomande.html e inseriscile in quizData.</p>`;
+        quizModal.classList.add("active");
+        return;
+      }
+      const q = entry.questions[Math.floor(Math.random()*entry.questions.length)];
+      quizBody.innerHTML = `<p><strong>${name}</strong></p><p>${q.question}</p>` + q.answers.map((a,i)=>`<button class="answer" data-i="${i}">${a}</button>`).join("");
+      quizModal.classList.add("active");
+      quizBody.querySelectorAll("button.answer").forEach(btn=>{
+        btn.addEventListener("click", ()=>{
+          const i = Number(btn.dataset.i);
+          const correct = (i===q.correct);
+          btn.classList.add(correct ? "correct":"wrong");
+          quizBody.querySelectorAll("button.answer").forEach(b=>b.disabled=true);
+          quizBody.querySelectorAll("button.answer")[q.correct]?.classList.add("correct");
+        });
+      });
+    });
+  });
+
+  closeQuiz.addEventListener("click", ()=> quizModal.classList.remove("active"));
+
+  // Multiplayer HOST/JOIN (Firebase)
+  hostBtn.addEventListener("click", async ()=>{
+    const nick = nicknameInput.value.trim();
+    if(!nick) return alert("Inserisci nickname.");
+    try{
+      const code = await window.MPMod.hostRoom(nick, { gameMode:"quiz", quizTimeLimit:15 });
+      roomCodeInput.value = code;
+      roomStatus.textContent = "Stanza creata: " + code + " (ADMIN)";
+      setAdmin(true);
+    }catch(e){
+      alert("Errore Firebase: " + e.message + "\n(Controlla assets/js/firebase-config.js)");
+    }
+  });
+
+  joinBtn.addEventListener("click", async ()=>{
+    const nick = nicknameInput.value.trim();
+    const code = roomCodeInput.value.trim().toUpperCase();
+    if(!nick) return alert("Inserisci nickname.");
+    if(!code) return alert("Inserisci room code.");
+    try{
+      await window.MPMod.joinRoom(code, nick);
+      roomStatus.textContent = "Entrato in: " + code;
+    }catch(e){
+      alert("Errore Firebase: " + e.message + "\n(Controlla assets/js/firebase-config.js)");
+    }
+  });
+
+  // room sync
+  window.addEventListener("mp-room",(ev)=>{
+    const st = ev.detail.data;
+    setAdmin(!!st.adminOnline);
+    roomStatus.textContent = "Connesso a: " + ev.detail.roomCode + (window.MPMod?.MP?.isAdmin ? " (ADMIN)" : "");
+  });
+
+  updateNumbers();
+  setAdmin(false);
+</script>
+</body>
+</html>

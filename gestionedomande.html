@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Gestione Domande - Quiz Regioni Italia</title>
+  <style>
+    body{margin:0;font-family:Arial,sans-serif;background:#0d1c3a;color:#eaf2ff}
+    header{padding:16px;background:#112244;border-bottom:1px solid #004466}
+    main{max-width:1000px;margin:0 auto;padding:16px}
+    textarea{width:100%;min-height:420px;background:#08142c;color:#cfe6ff;border:1px solid #2b5c88;border-radius:10px;padding:12px;font-family:ui-monospace,Menlo,Consolas,monospace}
+    button{background:#00aaff;color:#fff;border:0;border-radius:10px;padding:10px 14px;font-weight:800;cursor:pointer;margin:6px 6px 6px 0}
+    button.secondary{background:#004466}
+    button.danger{background:#c0392b}
+    .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+    .pill{padding:6px 10px;border:1px solid #2b5c88;border-radius:999px;background:#08142c}
+    #msg{font-weight:800;margin-top:8px}
+    .hint{opacity:.85}
+  </style>
+</head>
+<body>
+<header>
+  <div class="row">
+    <div class="pill"><strong>Gestione Domande</strong></div>
+    <div class="pill">Storage: <strong>localStorage</strong></div>
+    <div class="pill">Key: <strong>quizData</strong></div>
+  </div>
+</header>
+
+<main>
+  <p class="hint">
+    Questa pagina gestisce il JSON delle domande salvato in <code>localStorage</code>.
+    Funziona bene se è sullo stesso dominio di <code>index.html</code>.
+  </p>
+
+  <div class="row">
+    <button id="load">Carica</button>
+    <button id="save">Salva</button>
+    <button id="download" class="secondary">Esporta JSON</button>
+    <label class="pill" style="cursor:pointer">
+      Importa JSON <input id="file" type="file" accept="application/json" style="display:none">
+    </label>
+    <button id="reset" class="danger">Reset (vuoto)</button>
+  </div>
+
+  <textarea id="ta" spellcheck="false" placeholder='quizData (JSON)...'></textarea>
+  <div id="msg" aria-live="polite"></div>
+</main>
+
+<script>
+  const KEY = "quizData";
+  const ta = document.getElementById("ta");
+  const msg = document.getElementById("msg");
+
+  function setMsg(t, ok=true){
+    msg.style.color = ok ? "#22cc88" : "#ff4444";
+    msg.textContent = t;
+    setTimeout(()=>msg.textContent="", 3000);
+  }
+  function load(){
+    const raw = localStorage.getItem(KEY);
+    if(!raw){ ta.value = ""; setMsg("Nessun dato trovato in localStorage.", false); return; }
+    ta.value = JSON.stringify(JSON.parse(raw), null, 2);
+    setMsg("Caricato.");
+  }
+  function save(){
+    try{
+      const obj = JSON.parse(ta.value || "{}");
+      localStorage.setItem(KEY, JSON.stringify(obj));
+      setMsg("Salvato.");
+    }catch(e){
+      setMsg("JSON non valido: " + e.message, false);
+    }
+  }
+
+  document.getElementById("load").addEventListener("click", load);
+  document.getElementById("save").addEventListener("click", save);
+
+  document.getElementById("download").addEventListener("click", ()=>{
+    try{
+      const obj = JSON.parse(ta.value || "{}");
+      const blob = new Blob([JSON.stringify(obj, null, 2)], {type:"application/json"});
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "quizData.json";
+      a.click();
+      URL.revokeObjectURL(a.href);
+      setMsg("Esportato quizData.json");
+    }catch(e){
+      setMsg("JSON non valido: " + e.message, false);
+    }
+  });
+
+  document.getElementById("file").addEventListener("change", async (ev)=>{
+    const f = ev.target.files && ev.target.files[0];
+    if(!f) return;
+    const text = await f.text();
+    try{
+      const obj = JSON.parse(text);
+      ta.value = JSON.stringify(obj, null, 2);
+      setMsg("Import ok. Ora clicca Salva.");
+    }catch(e){
+      setMsg("File non valido: " + e.message, false);
+    }
+    ev.target.value = "";
+  });
+
+  document.getElementById("reset").addEventListener("click", ()=>{
+    if(!confirm("Vuoi resettare quizData a {} ?")) return;
+    localStorage.setItem(KEY, JSON.stringify({}));
+    ta.value = "{}";
+    setMsg("Reset completato.");
+  });
+
+  load();
+</script>
+</body>
+</html>
