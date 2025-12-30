@@ -1,18 +1,40 @@
 // assets/js/firebase-config.js
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getFirestore } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
-import { getAuth } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import {
+  getAuth,
+  signInAnonymously,
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import {
+  getDatabase
+} from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
+// 🔴 METTI QUI LA TUA CONFIG REALE
 export const firebaseConfig = {
-  apiKey: "AIzaSyC4wjxtURhqn1cfiaEDWXSLrj9-BgwoINs",
-  authDomain: "quiz-regioni.firebaseapp.com",
-  databaseURL: "https://quiz-regioni-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "quiz-regioni",
-  storageBucket: "quiz-regioni.firebasestorage.app",
-  messagingSenderId: "80504945646",
-  appId: "1:80504945646:web:865dac2c7890c3a62b2cff"
+  apiKey: "INSERISCI_API_KEY",
+  authDomain: "INSERISCI_AUTH_DOMAIN",
+  databaseURL: "INSERISCI_DATABASE_URL",
+  projectId: "INSERISCI_PROJECT_ID",
+  storageBucket: "INSERISCI_STORAGE_BUCKET",
+  messagingSenderId: "INSERISCI_SENDER_ID",
+  appId: "INSERISCI_APP_ID"
 };
 
+// Init
 export const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
 export const auth = getAuth(app);
+export const db = getDatabase(app);
+
+// ✅ QUESTA È LA FUNZIONE CHE MANCAVA
+export function ensureAnonAuth() {
+  return new Promise((resolve, reject) => {
+    const unsub = onAuthStateChanged(auth, user => {
+      if (user) {
+        unsub();
+        resolve(user);
+      } else {
+        signInAnonymously(auth).catch(reject);
+      }
+    });
+  });
+}
