@@ -1,18 +1,31 @@
 // assets/js/firebase-config.js
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getFirestore } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
-import { getAuth } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-export const firebaseConfig = {
-  apiKey: "AIzaSyC4wjxtURhqn1cfiaEDWXSLrj9-BgwoINs",
-  authDomain: "quiz-regioni.firebaseapp.com",
-  databaseURL: "https://quiz-regioni-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "quiz-regioni",
-  storageBucket: "quiz-regioni.firebasestorage.app",
-  messagingSenderId: "80504945646",
-  appId: "1:80504945646:web:865dac2c7890c3a62b2cff"
+/**
+ * 🔥 INCOLLA QUI LA TUA CONFIG DI FIREBASE (Project Settings → Web app)
+ * Esempio:
+ * const firebaseConfig = { apiKey:"...", authDomain:"...", projectId:"...", ... };
+ */
+const firebaseConfig = {
+  apiKey: "REPLACE_ME",
+  authDomain: "REPLACE_ME",
+  projectId: "REPLACE_ME",
+  storageBucket: "REPLACE_ME",
+  messagingSenderId: "REPLACE_ME",
+  appId: "REPLACE_ME"
 };
 
 export const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
 export const auth = getAuth(app);
+export const db = getFirestore(app);
+
+// ✅ Export che mancava (errore tuo risolto)
+export async function ensureAnonAuth() {
+  const { signInAnonymously } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");
+  if (!auth.currentUser) {
+    await signInAnonymously(auth);
+  }
+  return auth.currentUser;
+}
