@@ -4,6 +4,15 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Quiz Regioni Italia</title>
+
+  <!-- Favicons (CORRETTI: NON dentro <style>) -->
+  <link rel="icon" href="./favicon.ico" type="image/x-icon">
+  <link rel="shortcut icon" href="./favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="./favicon-16x16.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32x32.png">
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png">
+  <link rel="manifest" href="./site.webmanifest">
+
   <style>
     body{margin:0;font-family:Arial,sans-serif;background:linear-gradient(135deg,#1a73e8,#3c8dbc);color:#eee;min-height:100vh;display:flex;flex-direction:column;align-items:center}
     h1{margin:1rem;text-shadow:0 0 10px rgba(0,0,0,.7)}
@@ -15,33 +24,32 @@
     #map-svg text{user-select:none;pointer-events:none;text-anchor:middle}
     #map-svg .region-number{font-weight:700;font-size:14px;fill:yellow;stroke:black;stroke-width:1;paint-order:stroke}
     #map-svg .region-name{font-weight:600;font-size:10px;fill:white;stroke:rgba(0,0,0,.8);stroke-width:1px;paint-order:stroke}
+
     #register-modal{position:fixed;bottom:20px;right:20px;width:320px;max-height:80vh;overflow:auto;background:#222a44;border-radius:12px;box-shadow:0 0 25px rgba(0,0,0,.8);padding:1rem;z-index:10}
     #register-modal h2{margin:0 0 .7rem 0;text-align:center}
-    #register-modal input{width:100%;padding:.5rem;border-radius:6px;border:1px solid #004466;background:#112244;color:#aad4ff}
+    #register-modal input{width:100%;padding:.5rem;border-radius:6px;border:1px solid #004466;background:#112244;color:#aad4ff;box-sizing:border-box}
     #register-modal button{width:100%;margin-top:.6rem;background:#00aaff;color:#fff;border:0;border-radius:8px;padding:.6rem;font-weight:800;cursor:pointer}
+
     #menu-toggle-btn{position:fixed;top:10px;right:10px;background:#00aaff;color:#fff;border:0;border-radius:8px;padding:.4rem .8rem;font-weight:800;cursor:pointer;z-index:20}
     #menu{position:fixed;top:50px;right:10px;background:#222a44;border:1px solid #004466;border-radius:10px;box-shadow:0 0 12px rgba(0,0,0,.5);padding:8px;display:none;z-index:20}
-    #menu button{display:block;width:190px;background:#004466;color:#fff;border:0;border-radius:8px;padding:.6rem;margin:6px 0;font-weight:800;cursor:pointer;text-align:left}
+    #menu button{display:block;width:220px;background:#004466;color:#fff;border:0;border-radius:8px;padding:.6rem;margin:6px 0;font-weight:800;cursor:pointer;text-align:left}
+
     #admin-status{position:fixed;top:10px;left:10px;background:#aa2222;color:#fff;padding:.3rem .8rem;border-radius:10px;font-weight:800;z-index:20}
     #admin-status.online{background:#22aa22}
+
     #quiz-modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#222a44;border-radius:12px;box-shadow:0 0 25px rgba(0,0,0,.8);width:90vw;max-width:520px;max-height:90vh;overflow:auto;padding:1rem;display:none;z-index:30}
     #quiz-modal.active{display:block}
     .answer{width:100%;text-align:left;background:#0d1c3a;color:#aad4ff;border:1px solid #004466;border-radius:8px;padding:.6rem;margin:.25rem 0;font-weight:700;cursor:pointer}
     .answer.correct{background:#22cc88;color:#fff;border-color:#22cc88}
     .answer.wrong{background:#cc4455;color:#fff;border-color:#cc4455}
   </style>
-<link rel="icon" href="/ITALIA/favicon.ico" type="image/x-icon">
-<link rel="shortcut icon" href="/ITALIA/favicon.ico">
-<link rel="icon" type="image/png" sizes="16x16" href="/ITALIA/favicon-16x16.png">
-<link rel="icon" type="image/png" sizes="32x32" href="/ITALIA/favicon-32x32.png">
-<link rel="apple-touch-icon" href="/ITALIA/apple-touch-icon.png">
-<link rel="manifest" href="/ITALIA/site.webmanifest">
 
   <script type="module">
     import * as MPMod from "./assets/js/mp.js";
     window.MPMod = MPMod;
   </script>
 </head>
+
 <body>
   <h1>Quiz Interattivo: Regioni d'Italia</h1>
 
@@ -69,7 +77,7 @@
   <div id="map-container">
     <img src="./assets/images/mappa-italia.png" alt="Mappa Italia"/>
     <svg id="map-svg" viewBox="0 0 500 700" preserveAspectRatio="xMidYMid meet">
-      <!-- 20 regioni (punti cliccabili) -->
+      <!-- 20 regioni -->
       <g data-region-code="IT-25" data-region-name="Piemonte" transform="translate(64.44,188.88)"><circle cx="0" cy="0" r="12"/><text class="region-number" x="0" y="-12"></text><text class="region-name" x="0" y="16">Piemonte</text></g>
       <g data-region-code="IT-23" data-region-name="Valle d'Aosta" transform="translate(51.11,142.77)"><circle cx="0" cy="0" r="12"/><text class="region-number" x="0" y="-12"></text><text class="region-name" x="0" y="16">Valle d'Aosta</text></g>
       <g data-region-code="IT-42" data-region-name="Liguria" transform="translate(96.66,225)"><circle cx="0" cy="0" r="12"/><text class="region-number" x="0" y="-12"></text><text class="region-name" x="0" y="16">Liguria</text></g>
@@ -96,7 +104,7 @@
   <div id="quiz-modal" role="dialog" aria-modal="true">
     <h2 id="quiz-title">Quiz</h2>
     <div id="quiz-body"></div>
-    <button id="close-quiz" style="margin-top:10px;background:#c0392b">Chiudi</button>
+    <button id="close-quiz" style="margin-top:10px;background:#c0392b;color:#fff;border:0;border-radius:8px;padding:.6rem;font-weight:800;cursor:pointer">Chiudi</button>
   </div>
 
 <script>
@@ -116,7 +124,16 @@
     "IT-67":11,"IT-65":1,"IT-72":4,"IT-75":13,"IT-77":12,"IT-78":3,"IT-88":15,"IT-82":14
   });
 
-  const defaultQuizData = Object.fromEntries(Object.entries(regionNumbers).map(([code,n])=>[code,{region:document.querySelector(`g[data-region-code="${code}"]`)?.dataset.regionName||code,questions:[]}]));
+  // quizData: { "IT-25": { region:"Piemonte", questions:[{question,answers:[...],correct:0}] } ... }
+  const defaultQuizData = Object.fromEntries(
+    Object.entries(regionNumbers).map(([code])=>[
+      code,
+      {
+        region: document.querySelector(`g[data-region-code="${code}"]`)?.dataset.regionName || code,
+        questions:[]
+      }
+    ])
+  );
   const quizData = S.get("quizData", defaultQuizData);
 
   let adminOnline = false;
@@ -155,13 +172,16 @@
   }
 
   function promptPwd(){
-    const p = prompt("Password admin:");
-    return p;
+    return prompt("Password admin:");
   }
 
   // ===== EVENTS =====
-  menuBtn.addEventListener("click", ()=> menu.style.display = (menu.style.display==="block"?"none":"block"));
-  document.addEventListener("click",(e)=>{ if(!menu.contains(e.target) && e.target!==menuBtn) menu.style.display="none"; });
+  menuBtn.addEventListener("click", ()=> {
+    menu.style.display = (menu.style.display==="block" ? "none" : "block");
+  });
+  document.addEventListener("click",(e)=> {
+    if(!menu.contains(e.target) && e.target!==menuBtn) menu.style.display="none";
+  });
 
   openGestione.addEventListener("click", ()=> window.open("./gestionedomande.html","_blank"));
 
@@ -193,13 +213,17 @@
       const name = g.dataset.regionName;
       const entry = quizData[code];
       if(!entry || !entry.questions || entry.questions.length===0){
-        quizBody.innerHTML = `<p><strong>${name}</strong></p><p>Nessuna domanda presente. Apri gestionedomande.html e inseriscile in quizData.</p>`;
+        quizBody.innerHTML = `<p><strong>${name}</strong></p><p>Nessuna domanda presente. Apri gestionedomande.html e inseriscile.</p>`;
         quizModal.classList.add("active");
         return;
       }
       const q = entry.questions[Math.floor(Math.random()*entry.questions.length)];
-      quizBody.innerHTML = `<p><strong>${name}</strong></p><p>${q.question}</p>` + q.answers.map((a,i)=>`<button class="answer" data-i="${i}">${a}</button>`).join("");
+      quizBody.innerHTML =
+        `<p><strong>${name}</strong></p><p>${q.question}</p>` +
+        q.answers.map((a,i)=>`<button class="answer" data-i="${i}">${a}</button>`).join("");
+
       quizModal.classList.add("active");
+
       quizBody.querySelectorAll("button.answer").forEach(btn=>{
         btn.addEventListener("click", ()=>{
           const i = Number(btn.dataset.i);
@@ -224,7 +248,7 @@
       roomStatus.textContent = "Stanza creata: " + code + " (ADMIN)";
       setAdmin(true);
     }catch(e){
-      alert("Errore Firebase: " + e.message + "\n(Controlla assets/js/firebase-config.js)");
+      alert("Errore Firebase: " + (e?.message || e));
     }
   });
 
@@ -237,7 +261,7 @@
       await window.MPMod.joinRoom(code, nick);
       roomStatus.textContent = "Entrato in: " + code;
     }catch(e){
-      alert("Errore Firebase: " + e.message + "\n(Controlla assets/js/firebase-config.js)");
+      alert("Errore Firebase: " + (e?.message || e));
     }
   });
 
