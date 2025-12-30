@@ -3,122 +3,537 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Gestione Domande - Quiz Regioni Italia</title>
+  <title>Quiz Regioni Italia</title>
   <style>
-    body{margin:0;font-family:Arial,sans-serif;background:#0d1c3a;color:#eaf2ff}
-    header{padding:16px;background:#112244;border-bottom:1px solid #004466}
-    main{max-width:1000px;margin:0 auto;padding:16px}
-    textarea{width:100%;min-height:420px;background:#08142c;color:#cfe6ff;border:1px solid #2b5c88;border-radius:10px;padding:12px;font-family:ui-monospace,Menlo,Consolas,monospace}
-    button{background:#00aaff;color:#fff;border:0;border-radius:10px;padding:10px 14px;font-weight:800;cursor:pointer;margin:6px 6px 6px 0}
+    body{margin:0;font-family:Arial,sans-serif;background:#0d1c3a;color:#eaf2ff;min-height:100vh}
+    header{padding:14px 16px;background:#112244;border-bottom:1px solid #004466;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .pill{padding:6px 10px;border:1px solid #2b5c88;border-radius:999px;background:#08142c}
+    main{max-width:1100px;margin:0 auto;padding:16px}
+    .grid{display:grid;grid-template-columns:1fr 340px;gap:14px}
+    @media (max-width: 920px){.grid{grid-template-columns:1fr}}
+    #mapWrap{position:relative;background:#08142c;border:1px solid #2b5c88;border-radius:14px;padding:10px;overflow:hidden}
+    #mapImg{width:100%;height:auto;display:block;border-radius:12px;filter:brightness(.9) contrast(1.1)}
+    #mapSvg{position:absolute;inset:10px; width:calc(100% - 20px); height:calc(100% - 20px)}
+    #mapSvg g{cursor:pointer}
+    #mapSvg circle{fill:#4287f5;filter:drop-shadow(0 0 6px rgba(0,0,0,.5));transition:.2s}
+    #mapSvg g:hover circle{transform:scale(1.2);filter:drop-shadow(0 0 12px rgba(0,0,0,.8))}
+    .region-number{font-weight:800;font-size:14px;fill:yellow;stroke:black;stroke-width:1;paint-order:stroke;text-anchor:middle;pointer-events:none}
+    .region-name{font-weight:700;font-size:10px;fill:white;stroke:rgba(0,0,0,.8);stroke-width:1;paint-order:stroke;text-anchor:middle;pointer-events:none}
+    .doneX{fill:#fff;font-weight:900;font-size:16px;text-anchor:middle;pointer-events:none;opacity:.9}
+
+    .panel{background:#08142c;border:1px solid #2b5c88;border-radius:14px;padding:12px}
+    .panel h3{margin:0 0 10px 0}
+    button{background:#00aaff;color:#fff;border:0;border-radius:10px;padding:10px 14px;font-weight:800;cursor:pointer}
     button.secondary{background:#004466}
     button.danger{background:#c0392b}
-    .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
-    .pill{padding:6px 10px;border:1px solid #2b5c88;border-radius:999px;background:#08142c}
-    #msg{font-weight:800;margin-top:8px}
-    .hint{opacity:.85}
+    button:disabled{opacity:.5;cursor:not-allowed}
+
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    input[type="text"], input[type="number"]{
+      width:100%;padding:10px;border-radius:10px;border:1px solid #2b5c88;background:#112244;color:#cfe6ff;font-weight:700;box-sizing:border-box
+    }
+    label{font-weight:800;font-size:.92rem}
+    small{opacity:.8}
+
+    /* MODAL */
+    .overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:center;justify-content:center;z-index:9999}
+    .overlay.active{display:flex}
+    .modal{width:min(520px,92vw);max-height:86vh;overflow:auto;background:#222a44;border-radius:14px;box-shadow:0 0 25px rgba(0,0,0,.8);padding:16px}
+    .modal h2{margin:0 0 8px 0;text-align:center}
+    .quiz-title{font-size:1.6rem;font-weight:900;text-align:center;margin:10px 0;color:#22cc88;text-shadow:0 0 12px rgba(34,204,136,.5)}
+    .answer{width:100%;text-align:left;margin:6px 0;background:#0d1c3a;color:#aad4ff;border:1px solid #004466;border-radius:10px}
+    .answer.correct{background:#22cc88;color:#000;border-color:#22cc88}
+    .answer.wrong{background:#cc4455;color:#fff;border-color:#cc4455}
+    #timer{font-weight:900;text-align:center;margin:8px 0}
+    #feedback{font-weight:900;text-align:center;margin:10px 0}
+    .modal .row{justify-content:center}
+    a.linkBtn{display:inline-block;text-decoration:none}
   </style>
 </head>
+
 <body>
 <header>
-  <div class="row">
-    <div class="pill"><strong>Gestione Domande</strong></div>
-    <div class="pill">Storage: <strong>localStorage</strong></div>
-    <div class="pill">Key: <strong>quizData</strong></div>
-  </div>
+  <div class="pill"><strong>Quiz Regioni Italia</strong></div>
+  <div class="pill">Storage: <strong>localStorage</strong></div>
+  <div class="pill">Key: <strong>quizData</strong></div>
+  <div class="pill">✅ Fix shuffle + correct</div>
 </header>
 
 <main>
-  <p class="hint">
-    Questa pagina gestisce il JSON delle domande salvato in <code>localStorage</code>.
-    Funziona bene se è sullo stesso dominio di <code>index.html</code> (GitHub Pages ok).
-  </p>
+  <div class="grid">
 
-  <div class="row">
-    <button id="load">Carica</button>
-    <button id="save">Salva</button>
-    <button id="download" class="secondary">Esporta JSON</button>
-    <label class="pill" style="cursor:pointer">
-      Importa JSON <input id="file" type="file" accept="application/json" style="display:none">
-    </label>
-    <button id="reset" class="danger">Reset (vuoto)</button>
+    <!-- MAP -->
+    <section id="mapWrap">
+      <img id="mapImg" src="https://i.postimg.cc/dtmzm3F8/Senza-titolo-4000-x-6000-px.png" alt="Mappa Italia">
+      <svg id="mapSvg" viewBox="0 0 500 700" preserveAspectRatio="xMidYMid meet">
+        <!-- posizioni come nel tuo file -->
+        <g data-code="IT-25" data-name="Piemonte" transform="translate(64.44,188.88)">
+          <circle cx="0" cy="0" r="12"></circle>
+          <text class="region-number" x="0" y="-12"></text>
+          <text class="region-name" x="0" y="16">Piemonte</text>
+        </g>
+        <g data-code="IT-23" data-name="Valle d'Aosta" transform="translate(51.11,142.77)">
+          <circle cx="0" cy="0" r="12"></circle>
+          <text class="region-number" x="0" y="-12"></text>
+          <text class="region-name" x="0" y="16">Valle d'Aosta</text>
+        </g>
+        <g data-code="IT-42" data-name="Liguria" transform="translate(96.66,225)">
+          <circle cx="0" cy="0" r="12"></circle>
+          <text class="region-number" x="0" y="-12"></text>
+          <text class="region-name" x="0" y="16">Liguria</text>
+        </g>
+        <g data-code="IT-21" data-name="Lombardia" transform="translate(136.66,155.55)">
+          <circle cx="0" cy="0" r="12"></circle>
+          <text class="region-number" x="0" y="-12"></text>
+          <text class="region-name" x="0" y="16">Lombardia</text>
+        </g>
+        <g data-code="IT-32" data-name="Trentino-Alto Adige" transform="translate(190.55,98.33)">
+          <circle cx="0" cy="0" r="12"></circle>
+          <text class="region-number" x="0" y="-12"></text>
+          <text class="region-name" x="0" y="16">Trentino-Alto Adige</text>
+        </g>
+        <g data-code="IT-34" data-name="Veneto" transform="translate(209.44,168.88)">
+          <circle cx="0" cy="0" r="12"></circle>
+          <text class="region-number" x="0" y="-12"></text>
+          <text class="region-name" x="0" y="16">Veneto</text>
+        </g>
+        <g data-code="IT-45" data-name="Friuli-Venezia Giulia" transform="translate(261.66,126.66)">
+          <circle cx="0" cy="0" r="12"></circle>
+          <text class="region-number" x="0" y="-12"></text>
+          <text class="region-name" x="0" y="16">Friuli-Venezia Giulia</text>
+        </g>
+        <g data-code="IT-36" data-name="Emilia-Romagna" transform="translate(192.77,217.22)">
+          <circle cx="0" cy="0" r="12"></circle>
+          <text class="region-number" x="0" y="-12"></text>
+          <text class="region-name" x="0" y="16">Emilia-Romagna</text>
+        </g>
+        <g data-code="IT-52" data-name="Toscana" transform="translate(187.77,260.55)">
+          <circle cx="0" cy="0" r="12"></circle>
+          <text class="region-number" x="0" y="-12"></text>
+          <text class="region-name" x="0" y="16">Toscana</text>
+        </g>
+        <g data-code="IT-55" data-name="Umbria" transform="translate(245.54,298.88)">
+          <circle cx="0" cy="0" r="12"></circle>
+          <text class="region-number" x="0" y="-12"></text>
+          <text class="region-name" x="0" y="16">Umbria</text>
+        </g>
+        <g data-code="IT-57" data-name="Marche" transform="translate(267.77,280)">
+          <circle cx="0" cy="0" r="12"></circle>
+          <text class="region-number" x="0" y="-12"></text>
+          <text class="region-name" x="0" y="16">Marche</text>
+        </g>
+        <g data-code="IT-62" data-name="Lazio" transform="translate(240.55,333.33)">
+          <circle cx="0" cy="0" r="12"></circle>
+          <text class="region-number" x="0" y="-12"></text>
+          <text class="region-name" x="0" y="16">Lazio</text>
+        </g>
+        <g data-code="IT-67" data-name="Abruzzo" transform="translate(292.21,329.44)">
+          <circle cx="0" cy="0" r="12"></circle>
+          <text class="region-number" x="0" y="-12"></text>
+          <text class="region-name" x="0" y="16">Abruzzo</text>
+        </g>
+        <g data-code="IT-65" data-name="Molise" transform="translate(300,360)">
+          <circle cx="0" cy="0" r="12"></circle>
+          <text class="region-number" x="0" y="-12"></text>
+          <text class="region-name" x="0" y="16">Molise</text>
+        </g>
+        <g data-code="IT-72" data-name="Campania" transform="translate(328.88,400)">
+          <circle cx="0" cy="0" r="12"></circle>
+          <text class="region-number" x="0" y="-12"></text>
+          <text class="region-name" x="0" y="16">Campania</text>
+        </g>
+        <g data-code="IT-75" data-name="Puglia" transform="translate(403.33,388.33)">
+          <circle cx="0" cy="0" r="12"></circle>
+          <text class="region-number" x="0" y="-12"></text>
+          <text class="region-name" x="0" y="16">Puglia</text>
+        </g>
+        <g data-code="IT-77" data-name="Basilicata" transform="translate(383.88,422.22)">
+          <circle cx="0" cy="0" r="12"></circle>
+          <text class="region-number" x="0" y="-12"></text>
+          <text class="region-name" x="0" y="16">Basilicata</text>
+        </g>
+        <g data-code="IT-78" data-name="Calabria" transform="translate(398.88,483.33)">
+          <circle cx="0" cy="0" r="12"></circle>
+          <text class="region-number" x="0" y="-12"></text>
+          <text class="region-name" x="0" y="16">Calabria</text>
+        </g>
+        <g data-code="IT-88" data-name="Sicilia" transform="translate(306.11,567.77)">
+          <circle cx="0" cy="0" r="12"></circle>
+          <text class="region-number" x="0" y="-12"></text>
+          <text class="region-name" x="0" y="16">Sicilia</text>
+        </g>
+        <g data-code="IT-82" data-name="Sardegna" transform="translate(99.44,431.11)">
+          <circle cx="0" cy="0" r="12"></circle>
+          <text class="region-number" x="0" y="-12"></text>
+          <text class="region-name" x="0" y="16">Sardegna</text>
+        </g>
+      </svg>
+    </section>
+
+    <!-- RIGHT PANEL -->
+    <aside class="panel">
+      <h3>Controlli</h3>
+
+      <div class="row" style="margin-bottom:10px">
+        <button id="resetProgress" class="danger" type="button">Reset completate</button>
+        <button id="resetData" class="danger" type="button">Reset quizData</button>
+      </div>
+
+      <div style="margin:10px 0; padding:10px; border:1px dashed #2b5c88; border-radius:12px">
+        <div style="font-weight:900;margin-bottom:6px">Gestione domande</div>
+        <a class="linkBtn" href="./gestionedomande.html" target="_blank">
+          <button class="secondary" type="button" style="width:100%">Apri gestionedomande.html</button>
+        </a>
+        <small>✅ Su GitHub funziona perché è lo stesso dominio di index.html.</small>
+      </div>
+
+      <div style="margin-top:12px">
+        <label>Timer quiz (secondi)</label>
+        <input id="timeLimit" type="number" min="5" max="300" step="5" value="15" />
+        <div class="row" style="margin-top:8px">
+          <button id="saveTime" type="button">Salva timer</button>
+          <span id="msg" style="font-weight:900"></span>
+        </div>
+      </div>
+
+      <div style="margin-top:14px; opacity:.9">
+        <div><strong>Nota:</strong> se in passato hai salvato quizData “rovinato” (correct sbagliato), fai <b>Reset quizData</b> e rigenera da gestionedomande.</div>
+      </div>
+    </aside>
+
   </div>
-
-  <textarea id="ta" spellcheck="false" placeholder='quizData (JSON)...'></textarea>
-  <div id="msg" aria-live="polite"></div>
 </main>
 
+<!-- QUIZ MODAL -->
+<div id="overlay" class="overlay" role="dialog" aria-modal="true">
+  <div class="modal">
+    <h2>Quiz Regione</h2>
+    <div id="title" class="quiz-title"></div>
+    <div id="timer"></div>
+    <div id="content"></div>
+    <div id="feedback"></div>
+    <div class="row" style="margin-top:10px">
+      <button id="prev" class="secondary" type="button">Precedente</button>
+      <button id="next" type="button">Successiva</button>
+      <button id="close" class="danger" type="button">Chiudi</button>
+    </div>
+  </div>
+</div>
+
 <script>
-  const KEY = "quizData";
-  const ta = document.getElementById("ta");
+/* ===================== STORAGE ===================== */
+const KEY = "quizData";
+const PROG = "completedRegions";
+const TIMEK = "quizTimeLimit";
+
+function saveToLocal(key, obj){ localStorage.setItem(key, JSON.stringify(obj)); }
+function loadFromLocal(key, fallback){
+  const raw = localStorage.getItem(key);
+  if(!raw) return fallback;
+  try { return JSON.parse(raw); } catch { return fallback; }
+}
+
+/* ===================== DATA BASE ===================== */
+const defaultQuizData = {
+  "IT-25": { region: "Piemonte", questions: [] },
+  "IT-23": { region: "Valle d'Aosta", questions: [] },
+  "IT-42": { region: "Liguria", questions: [] },
+  "IT-21": { region: "Lombardia", questions: [] },
+  "IT-32": { region: "Trentino-Alto Adige", questions: [] },
+  "IT-34": { region: "Veneto", questions: [] },
+  "IT-45": { region: "Friuli-Venezia Giulia", questions: [] },
+  "IT-36": { region: "Emilia-Romagna", questions: [] },
+  "IT-52": { region: "Toscana", questions: [] },
+  "IT-55": { region: "Umbria", questions: [] },
+  "IT-57": { region: "Marche", questions: [] },
+  "IT-62": { region: "Lazio", questions: [] },
+  "IT-67": { region: "Abruzzo", questions: [] },
+  "IT-65": { region: "Molise", questions: [] },
+  "IT-72": { region: "Campania", questions: [] },
+  "IT-75": { region: "Puglia", questions: [] },
+  "IT-77": { region: "Basilicata", questions: [] },
+  "IT-78": { region: "Calabria", questions: [] },
+  "IT-88": { region: "Sicilia", questions: [] },
+  "IT-82": { region: "Sardegna", questions: [] }
+};
+
+const regionNumbers = {
+  "IT-25": 2, "IT-23": 19, "IT-42": 8, "IT-21": 9, "IT-32": 17, "IT-34": 20,
+  "IT-45": 6, "IT-36": 5, "IT-52": 16, "IT-55": 18, "IT-57": 10, "IT-62": 7,
+  "IT-67": 11, "IT-65": 1, "IT-72": 4, "IT-75": 13, "IT-77": 12, "IT-78": 3,
+  "IT-88": 15, "IT-82": 14
+};
+
+/* ===================== HELPERS ===================== */
+function shuffleArray(arr){
+  for(let i=arr.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+  return arr;
+}
+
+/* ===================== FIX GENERATORE (correct dopo shuffle) ===================== */
+function generateQuestionsForAllRegions() {
+  const out = {};
+  for (const [code, meta] of Object.entries(defaultQuizData)) {
+    const correctText = meta.region;
+    const answers = [correctText, "Risposta B", "Risposta C"];
+    shuffleArray(answers);
+    const correctIndex = answers.indexOf(correctText);
+
+    out[code] = {
+      region: meta.region,
+      questions: [
+        {
+          question: `Seleziona la regione: ${meta.region}`,
+          answers,
+          correct: correctIndex
+        }
+      ]
+    };
+  }
+  return out;
+}
+
+/* ===================== BOOT DATA ===================== */
+let quizData = loadFromLocal(KEY, null);
+if(!quizData){
+  quizData = generateQuestionsForAllRegions();
+  saveToLocal(KEY, quizData);
+}
+
+/* ===================== UI MAP NUMBERS + DONE ===================== */
+const svg = document.getElementById("mapSvg");
+let completed = loadFromLocal(PROG, []);
+if(!Array.isArray(completed)) completed = [];
+
+function renderMap(){
+  svg.querySelectorAll("g").forEach(g=>{
+    const code = g.dataset.code;
+    const num = regionNumbers[code] ?? "";
+    const tn = g.querySelector(".region-number");
+    if(tn) tn.textContent = num;
+
+    // X completata
+    const already = g.querySelector(".doneX");
+    if(completed.includes(code)){
+      if(!already){
+        const t = document.createElementNS("http://www.w3.org/2000/svg","text");
+        t.setAttribute("x","0"); t.setAttribute("y","5");
+        t.textContent="✖";
+        t.setAttribute("class","doneX");
+        g.appendChild(t);
+      }
+    } else {
+      if(already) already.remove();
+    }
+  });
+}
+renderMap();
+
+/* ===================== MODAL QUIZ ===================== */
+const overlay = document.getElementById("overlay");
+const titleEl = document.getElementById("title");
+const timerEl = document.getElementById("timer");
+const contentEl = document.getElementById("content");
+const feedbackEl = document.getElementById("feedback");
+const prevBtn = document.getElementById("prev");
+const nextBtn = document.getElementById("next");
+const closeBtn = document.getElementById("close");
+
+let timeLimit = loadFromLocal(TIMEK, 15);
+if(typeof timeLimit !== "number") timeLimit = 15;
+document.getElementById("timeLimit").value = timeLimit;
+
+let regionCode = null;
+let regionName = null;
+let qIndex = 0;
+let userAnswers = [];
+let intervalId = null;
+let remaining = 0;
+
+function openModal(){ overlay.classList.add("active"); }
+function closeModal(){
+  overlay.classList.remove("active");
+  stopTimer();
+  feedbackEl.textContent = "";
+}
+
+function stopTimer(){
+  if(intervalId){ clearInterval(intervalId); intervalId=null; }
+}
+
+function startTimer(){
+  stopTimer();
+  remaining = timeLimit;
+  timerEl.textContent = `Tempo rimasto: ${remaining}s`;
+  intervalId = setInterval(()=>{
+    remaining--;
+    timerEl.textContent = `Tempo rimasto: ${remaining}s`;
+    if(remaining <= 0){
+      stopTimer();
+      // timeout: blocca + evidenzia corretto
+      lockAnswersAndShowCorrect();
+      feedbackEl.textContent = "Tempo scaduto!";
+      setTimeout(()=> nextHandler(), 800);
+    }
+  }, 1000);
+}
+
+function lockAnswersAndShowCorrect(){
+  const q = quizData[regionCode].questions[qIndex];
+  const buttons = contentEl.querySelectorAll("button.answer");
+  buttons.forEach((b, idx)=>{
+    b.disabled = true;
+    if(idx === q.correct) b.classList.add("correct");
+  });
+}
+
+function showQuestion(){
+  const entry = quizData[regionCode];
+  const questions = entry.questions || [];
+  const total = questions.length;
+
+  // nessuna domanda
+  if(!Array.isArray(questions) || questions.length === 0){
+    contentEl.innerHTML = "<p>Nessun quiz disponibile per questa regione.</p>";
+    prevBtn.disabled = true;
+    nextBtn.disabled = true;
+    timerEl.textContent = "";
+    feedbackEl.textContent = "";
+    return;
+  }
+
+  const q = questions[qIndex];
+  titleEl.textContent = `${regionNumbers[regionCode]}. ${regionName}`;
+  contentEl.innerHTML = `
+    <p><strong>Domanda ${qIndex+1} di ${total}</strong></p>
+    <p>${q.question}</p>
+  `;
+
+  q.answers.forEach((txt, idx)=>{
+    const btn = document.createElement("button");
+    btn.type="button";
+    btn.className="answer";
+    btn.textContent = txt;
+    btn.addEventListener("click", ()=> selectAnswer(idx));
+    contentEl.appendChild(btn);
+  });
+
+  prevBtn.disabled = (qIndex === 0);
+  nextBtn.textContent = (qIndex === total-1) ? "Termina" : "Successiva";
+  nextBtn.disabled = false;
+
+  startTimer();
+}
+
+function selectAnswer(idx){
+  stopTimer();
+  const q = quizData[regionCode].questions[qIndex];
+  userAnswers[qIndex] = idx;
+
+  const buttons = contentEl.querySelectorAll("button.answer");
+  buttons.forEach((b,i)=>{
+    b.disabled = true;
+    if(i === q.correct) b.classList.add("correct");
+    else if(i === idx) b.classList.add("wrong");
+  });
+}
+
+/* ====== REGOLA VITTORIA CORRETTA (anche 1 domanda) ====== */
+function nextHandler(){
+  const questions = quizData[regionCode].questions;
+  const total = questions.length;
+
+  if(qIndex < total-1){
+    qIndex++;
+    showQuestion();
+    return;
+  }
+
+  // fine quiz
+  let correctCount = 0;
+  for(let i=0;i<total;i++){
+    if(userAnswers[i] === questions[i].correct) correctCount++;
+  }
+
+  feedbackEl.textContent = `Hai risposto correttamente a ${correctCount} su ${total} domande.`;
+
+  const win = (correctCount === total); // <-- questa è la regola giusta
+  if(win){
+    completed.push(regionCode);
+    completed = [...new Set(completed)];
+    saveToLocal(PROG, completed);
+    renderMap();
+  }
+
+  nextBtn.disabled = true;
+  prevBtn.disabled = true;
+  timerEl.textContent = "";
+
+  setTimeout(()=> closeModal(), 1200);
+}
+
+/* ===================== MAP CLICK ===================== */
+svg.querySelectorAll("g").forEach(g=>{
+  g.addEventListener("click", ()=>{
+    regionCode = g.dataset.code;
+    regionName = g.dataset.name;
+
+    // toggle X se già completata
+    if(completed.includes(regionCode)){
+      completed = completed.filter(x=>x!==regionCode);
+      saveToLocal(PROG, completed);
+      renderMap();
+      return;
+    }
+
+    qIndex = 0;
+    const qs = quizData[regionCode]?.questions || [];
+    userAnswers = new Array(qs.length).fill(null);
+
+    openModal();
+    showQuestion();
+  });
+});
+
+/* ===================== BUTTONS ===================== */
+nextBtn.addEventListener("click", nextHandler);
+prevBtn.addEventListener("click", ()=>{
+  if(qIndex > 0){ qIndex--; showQuestion(); }
+});
+closeBtn.addEventListener("click", closeModal);
+
+document.getElementById("saveTime").addEventListener("click", ()=>{
+  const v = parseInt(document.getElementById("timeLimit").value,10);
   const msg = document.getElementById("msg");
-
-  function setMsg(t, ok=true){
-    msg.style.color = ok ? "#22cc88" : "#ff4444";
-    msg.textContent = t;
-    setTimeout(()=>msg.textContent="", 2500);
+  if(isNaN(v) || v < 5){
+    msg.style.color="#ff4444";
+    msg.textContent="Valore non valido";
+    setTimeout(()=>msg.textContent="",1500);
+    return;
   }
+  timeLimit = v;
+  saveToLocal(TIMEK, v);
+  msg.style.color="#22cc88";
+  msg.textContent="Salvato";
+  setTimeout(()=>msg.textContent="",1200);
+});
 
-  function load(){
-    const raw = localStorage.getItem(KEY);
-    if(!raw){ ta.value = ""; setMsg("Nessun dato trovato in localStorage.", false); return; }
-    try{
-      ta.value = JSON.stringify(JSON.parse(raw), null, 2);
-      setMsg("Caricato.");
-    }catch(e){
-      setMsg("Dato corrotto in localStorage: " + e.message, false);
-    }
-  }
+document.getElementById("resetProgress").addEventListener("click", ()=>{
+  if(!confirm("Resettare le regioni completate?")) return;
+  completed = [];
+  saveToLocal(PROG, completed);
+  renderMap();
+});
 
-  function save(){
-    try{
-      const obj = JSON.parse(ta.value || "{}");
-      localStorage.setItem(KEY, JSON.stringify(obj));
-      setMsg("Salvato.");
-    }catch(e){
-      setMsg("JSON non valido: " + e.message, false);
-    }
-  }
-
-  document.getElementById("load").addEventListener("click", load);
-  document.getElementById("save").addEventListener("click", save);
-
-  document.getElementById("download").addEventListener("click", ()=>{
-    try{
-      const obj = JSON.parse(ta.value || "{}");
-      const blob = new Blob([JSON.stringify(obj, null, 2)], {type:"application/json"});
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = "quizData.json";
-      a.click();
-      URL.revokeObjectURL(a.href);
-      setMsg("Esportato quizData.json");
-    }catch(e){
-      setMsg("JSON non valido: " + e.message, false);
-    }
-  });
-
-  document.getElementById("file").addEventListener("change", async (ev)=>{
-    const f = ev.target.files && ev.target.files[0];
-    if(!f) return;
-    const text = await f.text();
-    try{
-      const obj = JSON.parse(text);
-      ta.value = JSON.stringify(obj, null, 2);
-      setMsg("Import ok. Ora clicca Salva.");
-    }catch(e){
-      setMsg("File non valido: " + e.message, false);
-    }
-    ev.target.value = "";
-  });
-
-  document.getElementById("reset").addEventListener("click", ()=>{
-    if(!confirm("Vuoi resettare quizData a {} ?")) return;
-    localStorage.setItem(KEY, JSON.stringify({}));
-    ta.value = "{}";
-    setMsg("Reset completato.");
-  });
-
-  load();
+document.getElementById("resetData").addEventListener("click", ()=>{
+  if(!confirm("Resettare quizData? Questo sovrascrive le domande salvate.")) return;
+  quizData = generateQuestionsForAllRegions();
+  saveToLocal(KEY, quizData);
+  alert("quizData resettato. Ora puoi aprire gestionedomande.html e importare/edire.");
+});
 </script>
 </body>
 </html>
