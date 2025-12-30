@@ -30,7 +30,7 @@
 <main>
   <p class="hint">
     Questa pagina gestisce il JSON delle domande salvato in <code>localStorage</code>.
-    Funziona bene se è sullo stesso dominio di <code>index.html</code>.
+    Funziona bene se è sullo stesso dominio di <code>index.html</code> (GitHub Pages ok).
   </p>
 
   <div class="row">
@@ -55,14 +55,20 @@
   function setMsg(t, ok=true){
     msg.style.color = ok ? "#22cc88" : "#ff4444";
     msg.textContent = t;
-    setTimeout(()=>msg.textContent="", 3000);
+    setTimeout(()=>msg.textContent="", 2500);
   }
+
   function load(){
     const raw = localStorage.getItem(KEY);
     if(!raw){ ta.value = ""; setMsg("Nessun dato trovato in localStorage.", false); return; }
-    ta.value = JSON.stringify(JSON.parse(raw), null, 2);
-    setMsg("Caricato.");
+    try{
+      ta.value = JSON.stringify(JSON.parse(raw), null, 2);
+      setMsg("Caricato.");
+    }catch(e){
+      setMsg("Dato corrotto in localStorage: " + e.message, false);
+    }
   }
+
   function save(){
     try{
       const obj = JSON.parse(ta.value || "{}");
